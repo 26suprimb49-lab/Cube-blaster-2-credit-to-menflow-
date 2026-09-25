@@ -296,6 +296,38 @@
 #homeProgressStats{font-size:8.5px;line-height:1.25}
 #homeRestartBtn{margin-top:5px;padding:4px 5px;border-width:1px;border-radius:5px;font-size:8px;letter-spacing:.2px;box-shadow:0 1px 0 #651b1b}
 @media(max-width:760px){#homeProgress{left:5px;top:5px;width:130px;padding:5px}#homeProgressTitle{font-size:11px}#homeProgressStats{font-size:7.5px;line-height:1.2}#homeRestartBtn{font-size:7px;padding:3px 4px}}
+
+
+  /* ---------- MOBILE / TOUCH CONTROLS ---------- */
+  button,.accountBtn,#resetSave{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+  #mobileControls{display:none;position:fixed;inset:0;z-index:140;pointer-events:none;font-family:var(--body)}
+  #mobileStick{position:absolute;left:14px;bottom:18px;width:150px;height:150px;border-radius:50%;pointer-events:auto;touch-action:none;background:radial-gradient(circle,#ffffff14 0 26%,#ffffff08 27% 58%,#ffffff04 59% 100%);border:2px solid #ffffff26;box-shadow:0 0 24px #0008}
+  #mobileStickKnob{position:absolute;left:50%;top:50%;width:58px;height:58px;margin:-29px 0 0 -29px;border-radius:50%;background:linear-gradient(180deg,#ffffff45,#ffffff1c);border:2px solid #fff7;box-shadow:0 5px 16px #0008;pointer-events:none}
+  #mobileActions{position:absolute;right:12px;bottom:14px;width:min(330px,48vw);display:grid;grid-template-columns:repeat(4,1fr);gap:7px;pointer-events:auto}
+  .mBtn{min-height:48px;padding:6px 4px;border:2px solid #ffffff34;border-radius:12px;background:linear-gradient(180deg,#182532ee,#071018ee);color:#fff;font:900 10px var(--body);text-shadow:0 2px 2px #000;box-shadow:0 5px 12px #0009;touch-action:none;user-select:none;-webkit-user-select:none}
+  .mBtn:active,.mBtn.held{transform:translateY(2px);filter:brightness(1.2);border-color:#7ee5ff}
+  .mBtn.main{grid-column:span 2;min-height:58px;font:900 15px var(--display);letter-spacing:1px;border-color:#ffd23e66;background:linear-gradient(180deg,#4b3a0b,#201706)}
+  .mBtn.warn{border-color:#ff5f6977}
+  .mBtn.good{border-color:#78ff8a66}
+  #mobileHint{position:absolute;left:50%;bottom:9px;transform:translateX(-50%);padding:5px 9px;border-radius:8px;background:#0008;color:#fff9;font-size:9px;font-weight:800;pointer-events:none;white-space:nowrap}
+  @media (pointer:coarse),(max-width:760px){
+    #mobileControls{display:block}
+    #hint{display:none}
+    #stats{font-size:13px;right:8px;top:28px;line-height:1.5}
+    #timer{font-size:30px;top:23px}
+    #hpWrap{left:8px;bottom:176px;width:220px}
+    #abilityTray,#weaponMoveTray{display:none!important}
+  }
+  @media(max-width:500px){
+    #mobileStick{width:126px;height:126px;left:10px;bottom:12px}
+    #mobileStickKnob{width:50px;height:50px;margin:-25px 0 0 -25px}
+    #mobileActions{right:7px;bottom:9px;width:54vw;gap:5px}
+    .mBtn{min-height:43px;font-size:9px;border-radius:10px}
+    .mBtn.main{min-height:54px;font-size:13px}
+    #mobileHint{display:none}
+    #hpWrap{bottom:166px;width:195px}
+  }
+
 </style>
 </head>
 <body>
@@ -552,6 +584,28 @@
     <div class="endStats">press P to resume</div>
   </div>
 </div>
+
+  <div id="mobileControls" aria-label="Mobile game controls">
+    <div id="mobileStick" aria-label="Move joystick"><div id="mobileStickKnob"></div></div>
+    <div id="mobileActions">
+      <button class="mBtn main" data-mact="attack" type="button">ATTACK</button>
+      <button class="mBtn" data-mact="jump" type="button">JUMP</button>
+      <button class="mBtn" data-mact="shift" type="button">SHIFT</button>
+      <button class="mBtn" data-mact="q" type="button">Q</button>
+      <button class="mBtn" data-mact="e" type="button">E</button>
+      <button class="mBtn" data-mact="1" type="button">1</button>
+      <button class="mBtn" data-mact="2" type="button">2</button>
+      <button class="mBtn" data-mact="3" type="button">3</button>
+      <button class="mBtn" data-mact="4" type="button">4</button>
+      <button class="mBtn" data-mact="v" type="button">V</button>
+      <button class="mBtn" data-mact="f" type="button">FLIGHT</button>
+      <button class="mBtn" data-mact="ctrl" type="button">DOWN</button>
+      <button class="mBtn" data-mact="y" type="button">Y</button>
+      <button class="mBtn" data-mact="r" type="button">R</button>
+      <button class="mBtn warn" data-mact="g" type="button">G</button>
+    </div>
+    <div id="mobileHint">DRAG THE SCREEN TO LOOK · JOYSTICK TO MOVE</div>
+  </div>
 
 <script type="importmap">
 { "imports": {
@@ -4729,6 +4783,129 @@ addEventListener('keydown', e => {
 addEventListener('keyup', e => keys[e.code] = false);
 document.getElementById('inventoryClose').onclick = toggleInventory;
 
+
+
+/* ---------- mobile / touch input ---------- */
+const mobileInput = { attackTimer:null, stickId:null, lookId:null, lookX:0, lookY:0, shift:false };
+function mobileIsTouch(){ return matchMedia('(pointer:coarse)').matches || 'ontouchstart' in window || navigator.maxTouchPoints > 0; }
+function mobilePressKey(code,on){ keys[code]=!!on; }
+function mobileFireAttack(){
+  if(G.state!=='play') return;
+  if(bomber?.occupied) { dropBomberBomb(); return; }
+  if(tank?.occupied) { fireTankShell(); return; }
+  if(isRock() && P.rockTransformed){
+    if(P.rockMegaReady) { launchMegaRockAt(getMobileAimWorld()); return; }
+    if(P.rockShotActive) { launchSingleRockAt(getMobileAimWorld()); return; }
+    if(P.rockVolleyActive) { launchRockVolley(getMobileAimWorld()); return; }
+    triggerRockM1(); return;
+  }
+  if(P.mapWeapon) { triggerMapWeaponM1(); return; }
+  if(isKJ()) { triggerKJM1(); return; }
+  if(isGhoul()) { triggerGhoulM1(); return; }
+}
+function mobileStartAttack(){
+  mobileFireAttack();
+  if(mobileInput.attackTimer) clearInterval(mobileInput.attackTimer);
+  mobileInput.attackTimer=setInterval(mobileFireAttack,150);
+}
+function mobileStopAttack(){
+  if(mobileInput.attackTimer){ clearInterval(mobileInput.attackTimer); mobileInput.attackTimer=null; }
+}
+function getMobileAimWorld(){
+  const x=innerWidth*0.5,y=innerHeight*0.5;
+  const ndc=new THREE.Vector2((x/innerWidth)*2-1,-(y/innerHeight)*2+1);
+  const r=new THREE.Raycaster(); r.setFromCamera(ndc,camera);
+  const hit=new THREE.Vector3(); const ground=new THREE.Plane(new THREE.Vector3(0,1,0),0);
+  return r.ray.intersectPlane(ground,hit)?hit:new THREE.Vector3(P.pos.x+P.facing.x*12,P.pos.y,P.pos.z+P.facing.z*12);
+}
+function mobileToggleShift(){
+  G.shiftLock=!G.shiftLock;
+  document.getElementById('aimReticle')?.classList.toggle('active',G.shiftLock && G.state==='play');
+  if(!G.shiftLock && document.pointerLockElement){ try{document.exitPointerLock();}catch(err){} }
+}
+function mobileDoAction(action,down=true){
+  if(action==='attack'){ if(down) mobileStartAttack(); else mobileStopAttack(); return; }
+  if(action==='shift'){ if(down) mobileToggleShift(); return; }
+  if(action==='jump'){ mobilePressKey('Space',down); return; }
+  if(action==='ctrl'){ mobilePressKey('ControlLeft',down); return; }
+  if(action==='f'){ if(down && G.state==='play'){ if(isGhoul()){ if(P.ghoulFlight?.active) endGhoulFlight(); else startGhoulFlight(); } else if(isRock() && P.rockTransformed){ if(P.rockFlight?.active) endRockFlight(false); else startRockFlight(); } } return; }
+  if(action==='e'){ if(down && G.state==='play'){ if(drivenVehicle()){exitVehicle();return;} if(enterTank()||enterBomber()||enterRamCar()) return; const reachX=P.pos.x+P.facing.x*1.8, reachZ=P.pos.z+P.facing.z*1.8; if(collectBiomeRelic()) return; if(hitResourceNodes(reachX,reachZ,5.5,P.pos.y)){P.attackT=.32;Sfx.boom();} } return; }
+  if(action==='q'){ if(down) triggerDash(); return; }
+  if(action==='y'){ if(down) triggerTripleSlash(); return; }
+  if(action==='r'){ if(down) triggerWeaponCombo(); return; }
+  if(action==='g'){ if(down){ if(isRock()) transformIntoRock(); else if(!isGhoul()) triggerAwakening(); } return; }
+  if(/^[1-4]$/.test(action)){ if(down){const slot=Number(action); if(isRock() && P.rockTransformed) triggerRockPower(slot); else if(isGhoul()) triggerGhoulAbility(slot); else triggerUltimate(slot);} return; }
+  if(action==='v'){ if(down && isGhoul()) triggerGhoulV(); return; }
+}
+function syncMobileButtonLabels(){
+  const f=document.querySelector('[data-mact="f"]'); if(f) f.textContent=(isGhoul()&&P.ghoulFlight?.active)||(isRock()&&P.rockFlight?.active)?'LAND':'FLIGHT';
+  const s=document.querySelector('[data-mact="shift"]'); if(s) s.textContent=G.shiftLock?'UNSHIFT':'SHIFTLOCK';
+}
+{
+  const root=document.getElementById('mobileControls');
+  if(root){
+    root.querySelectorAll('[data-mact]').forEach(btn=>{
+      const act=btn.dataset.mact;
+      const down=e=>{e.preventDefault();e.stopPropagation();btn.classList.add('held');mobileDoAction(act,true);};
+      const up=e=>{e.preventDefault();e.stopPropagation();btn.classList.remove('held');mobileDoAction(act,false);};
+      btn.addEventListener('pointerdown',down,{passive:false});
+      btn.addEventListener('pointerup',up,{passive:false});
+      btn.addEventListener('pointercancel',up,{passive:false});
+      btn.addEventListener('pointerleave',e=>{ if(act==='attack'||act==='jump'||act==='ctrl') up(e); },{passive:false});
+    });
+    const stick=document.getElementById('mobileStick'), knob=document.getElementById('mobileStickKnob');
+    if(stick&&knob){
+      const setStick=(clientX,clientY)=>{
+        const r=stick.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2,max=r.width*.32;
+        let dx=clientX-cx,dy=clientY-cy,len=Math.hypot(dx,dy); if(len>max){dx=dx/len*max;dy=dy/len*max;}
+        knob.style.transform=`translate(${dx}px,${dy}px)`;
+        const dead=10; mobilePressKey('KeyW',dy < -dead); mobilePressKey('KeyS',dy > dead); mobilePressKey('KeyA',dx < -dead); mobilePressKey('KeyD',dx > dead);
+      };
+      const clearStick=()=>{mobileInput.stickId=null;knob.style.transform='';['KeyW','KeyA','KeyS','KeyD'].forEach(k=>mobilePressKey(k,false));};
+      stick.addEventListener('pointerdown',e=>{e.preventDefault();mobileInput.stickId=e.pointerId;stick.setPointerCapture?.(e.pointerId);setStick(e.clientX,e.clientY);},{passive:false});
+      stick.addEventListener('pointermove',e=>{if(e.pointerId===mobileInput.stickId){e.preventDefault();setStick(e.clientX,e.clientY);}},{passive:false});
+      stick.addEventListener('pointerup',e=>{if(e.pointerId===mobileInput.stickId){e.preventDefault();clearStick();}},{passive:false});
+      stick.addEventListener('pointercancel',clearStick,{passive:false});
+      stick.addEventListener('pointerleave',e=>{if(e.pointerId===mobileInput.stickId)clearStick();},{passive:false});
+    }
+  }
+}
+// Touch-safe fallback for every existing HTML button. Prevent the browser's
+// compatibility click and invoke the button's real click handler ourselves.
+addEventListener('touchend',e=>{
+  const target=e.target?.closest?.('button,.accountBtn,#resetSave');
+  if(!target || target.disabled || target.closest('#mobileControls')) return;
+  e.preventDefault();
+  target.click();
+},{passive:false});
+// Mobile camera drag: touch-drag on the world rotates the camera, while the
+// on-screen controls consume their own touches.
+if(renderer?.domElement){
+  renderer.domElement.style.touchAction='none';
+  renderer.domElement.addEventListener('touchstart',e=>{
+    if(!mobileIsTouch() || G.state!=='play' || e.touches.length!==1) return;
+    if(e.target.closest?.('#mobileControls')) return;
+    const t=e.changedTouches[0]; mobileInput.lookId=t.identifier; mobileInput.lookX=t.clientX; mobileInput.lookY=t.clientY;
+  },{passive:false});
+  renderer.domElement.addEventListener('touchmove',e=>{
+    if(mobileInput.lookId==null) return;
+    let t=null; for(const q of e.touches) if(q.identifier===mobileInput.lookId){t=q;break;} if(!t) return;
+    e.preventDefault();
+    const dx=t.clientX-mobileInput.lookX,dy=t.clientY-mobileInput.lookY;
+    camYaw-=dx*0.007; const pitchMax=(isGhoul()&&P.ghoulFlight?.active)||(isRock()&&P.rockFlight?.active)?1.55:1.25; camPitch=THREE.MathUtils.clamp(camPitch+dy*0.005,0.10,pitchMax);
+    mobileInput.lookX=t.clientX; mobileInput.lookY=t.clientY;
+  },{passive:false});
+  const endLook=e=>{ if(mobileInput.lookId==null) return; for(const t of e.changedTouches) if(t.identifier===mobileInput.lookId){mobileInput.lookId=null;break;} };
+  renderer.domElement.addEventListener('touchend',endLook,{passive:false});
+  renderer.domElement.addEventListener('touchcancel',endLook,{passive:false});
+}
+function syncMobileControls(){
+  const root=document.getElementById('mobileControls'); if(!root) return;
+  const show=mobileIsTouch() && G.state==='play' && !G.inventoryOpen && !admin.open && !mobArmy?.editorOpen;
+  root.style.display=show?'block':'none';
+  if(show) syncMobileButtonLabels();
+}
+
 /* ---------- mouse camera: drag to orbit, scroll to zoom ---------- */
 let camYaw = 0, camPitch = 0.66, camDist = 17.2;
 let dragging = false, lastMX = 0, lastMY = 0;
@@ -6340,6 +6517,7 @@ function tick(now) {
     updateRamCar(dt);
     updateVehicleHud();
     animatePlayer(dt, moving);
+    syncMobileControls();
 
     // invuln flash
     if (P.invuln > 0) {
